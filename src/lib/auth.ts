@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, inArray, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
 import type { Role, SessionUser } from "@/lib/types";
@@ -57,8 +57,10 @@ export async function createSession(userId: number) {
   return { token, expiresAt };
 }
 
-export async function destroySession(token: string | undefined | null) {
-  if (token && isTokenShape(token)) await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
+export async function destroySession(tokens: string | string[] | undefined | null) {
+  const list = (Array.isArray(tokens) ? tokens : [tokens]).filter((token): token is string => !!token && isTokenShape(token));
+  if (!list.length) return;
+  await db.delete(sessions).where(inArray(sessions.tokenHash, list.map(hashToken)));
 }
 
 function isTokenShape(token: string) {
@@ -104,23 +106,27 @@ export function clearedSessionCookie(request: Request) {
   return { name: SESSION_COOKIE, value: "", httpOnly: true, path: "/", expires: new Date(0), ...policy };
 }
 
-/** Session token from the cookie, or from the Authorization header used by the client fallback. */
-export async function requestToken() {
-  const store = await cookies();
-  const fromCookie = store.get(SESSION_COOKIE)?.value;
-  if (fromCookie && isTokenShape(fromCookie)) return fromCookie;
+/**
+ * Candidate session tokens, cookie first then the Authorization bearer used by the client fallback.
+ * Both are returned so a stale cookie can never shadow a valid token on mobile browsers.
+ */
+export async function requestTokens(): Promise<string[]> {
+  const tokens: string[] = [];
+  const fromCookie = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (fromCookie && isTokenShape(fromCookie)) tokens.push(fromCookie);
   const authorization = (await headers()).get("authorization") || "";
   const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
-  return bearer && isTokenShape(bearer) ? bearer : null;
+  if (bearer && isTokenShape(bearer) && bearer !== fromCookie) tokens.push(bearer);
+  return tokens;
 }
 
 export async function currentUser(): Promise<SessionUser | null> {
   if (!authRequired()) return OPEN_USER;
-  const token = await requestToken();
-  if (!token) return null;
+  const tokens = await requestTokens();
+  if (!tokens.length) return null;
   const rows = await db.select({ user: users }).from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
+    .where(and(inArray(sessions.tokenHash, tokens.map(hashToken)), gt(sessions.expiresAt, new Date())))
     .limit(1);
   const user = rows[0]?.user;
   if (!user) return null;

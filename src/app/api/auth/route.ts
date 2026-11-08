@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { authRequired, clearedSessionCookie, createSession, currentUser, destroySession, ensureDefaultUser, hashPassword, requestToken, sameOrigin, sessionCookie, verifyPassword } from "@/lib/auth";
+import { authRequired, clearedSessionCookie, createSession, currentUser, destroySession, ensureDefaultUser, hashPassword, requestTokens, sameOrigin, sessionCookie, verifyPassword } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
-  await destroySession(await requestToken());
+  await destroySession(await requestTokens());
   const response = NextResponse.json({ ok: true });
   response.cookies.set(clearedSessionCookie(request));
   return response;

@@ -1,8 +1,8 @@
 import { db } from "@/db";
 import { categories, clients, orderItems, orders, products, sessions, users } from "@/db/schema";
-import { currentUser, hashPassword, hashToken, requestToken, sameOrigin, verifyPassword } from "@/lib/auth";
+import { currentUser, hashPassword, hashToken, requestTokens, sameOrigin, verifyPassword } from "@/lib/auth";
 import { ensureInitialData, getAppData } from "@/lib/data";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { centsToDecimal, hasTwoDecimals, LIMITS, lineTotalCents, taxCentsFromHt, toCents, totalSachetsOf } from "@/lib/packaging";
@@ -190,8 +190,8 @@ export async function POST(request: Request) {
       if (!row || !(await verifyPassword(input.currentPassword, row.passwordHash))) throw new ValidationError("Le mot de passe actuel est incorrect.");
       if (input.currentPassword === input.newPassword) throw new ValidationError("Choisissez un mot de passe différent de l’actuel.");
       await db.update(users).set({ passwordHash: await hashPassword(input.newPassword), mustChangePassword: false }).where(eq(users.id, user.id));
-      const token = await requestToken();
-      if (token) await db.delete(sessions).where(and(eq(sessions.userId, user.id), ne(sessions.tokenHash, hashToken(token))));
+      const tokens = await requestTokens();
+      if (tokens.length) await db.delete(sessions).where(and(eq(sessions.userId, user.id), notInArray(sessions.tokenHash, tokens.map(hashToken))));
       return Response.json({ ok: true });
     }
     if (action === "delete") {
