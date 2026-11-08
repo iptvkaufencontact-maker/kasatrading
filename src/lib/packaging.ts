@@ -1,6 +1,7 @@
 /** Decimal-safe helpers shared by the order workflow (client) and the API (server). Amounts are handled in integer cents. */
 
 export const LIMITS = { cartons: 9999, sachets: 99999, perCarton: 10000, price: 1000000, totalSachets: 10000000 };
+export const TAX_RATE_OPTIONS = [{ basisPoints: 550, label: "5,5 %" }, { basisPoints: 2000, label: "20 %" }] as const;
 
 export function toCents(value: number | string) {
   return Math.round(Number(value) * 100);
@@ -24,6 +25,15 @@ export function totalSachetsOf(cartons: number, sachets: number, perCarton: numb
 
 export function lineTotalCents(totalSachets: number, priceCents: number) {
   return totalSachets * priceCents;
+}
+
+/** VAT is rounded once per order line to the nearest cent. */
+export function taxCentsFromHt(htCents: number, rateBps: number) {
+  return Math.round((htCents * rateBps) / 10_000);
+}
+
+export function taxRateLabel(rateBps: number | null) {
+  return TAX_RATE_OPTIONS.find((rate) => rate.basisPoints === rateBps)?.label || "À définir";
 }
 
 /** Positive result = discount, negative = markup, in percent of the catalogue price. */

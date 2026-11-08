@@ -5,7 +5,7 @@ import { ensureInitialData, getAppData } from "@/lib/data";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { centsToDecimal, hasTwoDecimals, LIMITS, lineTotalCents, toCents, totalSachetsOf } from "@/lib/packaging";
+import { centsToDecimal, hasTwoDecimals, LIMITS, lineTotalCents, taxCentsFromHt, toCents, totalSachetsOf } from "@/lib/packaging";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +21,13 @@ const productSchema = z.object({
   id: id.optional(), name: z.string().trim().min(2).max(160), sku: z.string().trim().min(1).max(80),
   categoryId: id,
   defaultSachetPrice: z.number().finite().min(0).max(LIMITS.price).refine(hasTwoDecimals, "Prix invalide"),
+  taxRateBps: z.union([z.literal(550), z.literal(2000)]).nullable().optional(),
   sachetsPerCarton: z.number().int().min(1).max(LIMITS.perCarton),
   unit: z.string().trim().max(30).nullish().transform((value) => value || ""),
   available: z.boolean(),
   imageUrl: z.string().max(2000000).nullish().transform((v) => v?.trim() || null)
     .refine((v) => !v || v.startsWith("/images/") || /^https:\/\//i.test(v) || /^data:image\/(png|jpeg|webp);base64,/i.test(v), "Image invalide"),
-});
+}).refine((product) => product.id !== undefined || product.taxRateBps === 550 || product.taxRateBps === 2000, "Choisissez un taux de TVA.");
 const orderLineSchema = z.object({
   productId: id,
   cartons: z.number().int().min(0).max(LIMITS.cartons),
@@ -99,7 +100,8 @@ export async function POST(request: Request) {
       const { id: recordId, ...input } = parse(productSchema, payload);
       const category = await db.select({ id: categories.id }).from(categories).where(eq(categories.id, input.categoryId));
       if (!category.length) throw new ValidationError("Veuillez choisir une catégorie existante.");
-      const values = { ...input, defaultSachetPrice: centsToDecimal(toCents(input.defaultSachetPrice)) };
+      const { taxRateBps, ...productInput } = input;
+      const values = { ...productInput, ...(taxRateBps === undefined ? {} : { taxRateBps }), defaultSachetPrice: centsToDecimal(toCents(input.defaultSachetPrice)) };
       if (recordId) {
         const updated = await db.update(products).set(values).where(eq(products.id, recordId)).returning();
         if (!updated.length) throw new ValidationError("Produit introuvable.");
@@ -122,32 +124,39 @@ export async function POST(request: Request) {
         const previous = previousItems.find((old) => old.productId === product.id);
         const perCarton = previous?.sachetsPerCartonAtOrder ?? product.sachetsPerCarton;
         const defaultPriceCents = toCents(previous?.defaultSachetPriceAtOrder ?? product.defaultSachetPrice);
+        const taxRateBps = previous ? previous.taxRateBps : product.taxRateBps;
+        if (taxRateBps !== 550 && taxRateBps !== 2000) throw new ValidationError(`Définissez la TVA de « ${product.name} » avant de créer la commande.`);
         const totalSachets = totalSachetsOf(item.cartons, item.sachets, perCarton);
         if (totalSachets < 1 || totalSachets > LIMITS.totalSachets) throw new ValidationError(`Quantité invalide pour « ${product.name} ».`);
         const priceCents = toCents(item.sachetPrice);
         const totalCents = lineTotalCents(totalSachets, priceCents);
+        const taxCents = taxCentsFromHt(totalCents, taxRateBps);
         return {
           productId: product.id, productName: product.name, unit: previous?.unit ?? product.unit,
-          cartonQuantity: item.cartons, additionalSachets: String(item.sachets), sachetsPerCartonAtOrder: perCarton, totalSachets: String(totalSachets),
+          cartonQuantity: item.cartons, additionalSachets: String(item.sachets), sachetsPerCartonAtOrder: perCarton, taxRateBps, taxAmount: centsToDecimal(taxCents), totalSachets: String(totalSachets),
           sachetPriceAtOrder: centsToDecimal(priceCents), defaultSachetPriceAtOrder: centsToDecimal(defaultPriceCents),
-          totalPrice: centsToDecimal(totalCents), totalCents,
+          totalPrice: centsToDecimal(totalCents), totalCents, taxCents,
         };
       });
-      const total = centsToDecimal(lines.reduce((sum, line) => sum + line.totalCents, 0));
+      const subtotalCents = lines.reduce((sum, line) => sum + line.totalCents, 0);
+      const taxCents = lines.reduce((sum, line) => sum + line.taxCents, 0);
+      const subtotal = centsToDecimal(subtotalCents);
+      const taxAmount = centsToDecimal(taxCents);
+      const total = centsToDecimal(subtotalCents + taxCents);
       const result = await db.transaction(async (tx) => {
         let orderId: number;
         let orderNumber: string;
         if (input.id) {
-          const [updated] = await tx.update(orders).set({ clientId: input.clientId, subtotal: total, total }).where(eq(orders.id, input.id)).returning();
+          const [updated] = await tx.update(orders).set({ clientId: input.clientId, subtotal, taxAmount, total }).where(eq(orders.id, input.id)).returning();
           if (!updated) throw new ValidationError("Commande introuvable.");
           orderId = updated.id; orderNumber = updated.orderNumber;
           await tx.delete(orderItems).where(eq(orderItems.orderId, orderId));
         } else {
           orderNumber = `KT-${new Date().getFullYear()}-${randomBytes(3).toString("hex").toUpperCase()}`;
-          const [created] = await tx.insert(orders).values({ orderNumber, clientId: input.clientId, subtotal: total, total, status: "pending" }).returning();
+          const [created] = await tx.insert(orders).values({ orderNumber, clientId: input.clientId, subtotal, taxAmount, total, status: "pending" }).returning();
           orderId = created.id;
         }
-        await tx.insert(orderItems).values(lines.map(({ totalCents: _totalCents, ...line }) => ({ ...line, orderId })));
+        await tx.insert(orderItems).values(lines.map(({ totalCents: _totalCents, taxCents: _taxCents, ...line }) => ({ ...line, orderId })));
         return { id: orderId, orderNumber };
       });
       return Response.json({ ok: true, ...result });

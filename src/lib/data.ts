@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { appSettings, categories, clients, orderItems, orders, products, users } from "@/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
-import type { AppData, AppUser, OrderStatus, Role, SessionUser } from "@/lib/types";
+import type { AppData, AppUser, OrderStatus, Role, SessionUser, TaxRateBps } from "@/lib/types";
 
 /** Seed a starter catalogue on an empty installation (claimed atomically, runs once). */
 export async function ensureInitialData() {
@@ -46,10 +46,10 @@ export async function getAppData(user: SessionUser): Promise<AppData> {
   return {
     clients: clientRows.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })),
     categories: categoryRows.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })),
-    products: productRows.map(({ product, categoryName }) => ({ ...product, categoryName, createdAt: product.createdAt.toISOString() })),
+    products: productRows.map(({ product, categoryName }) => ({ ...product, categoryName, taxRateBps: product.taxRateBps as TaxRateBps | null, createdAt: product.createdAt.toISOString() })),
     orders: orderRows.map(({ order, clientName, clientCity }) => ({
       ...order, status: order.status as OrderStatus, clientName, clientCity, createdAt: order.createdAt.toISOString(),
-      items: itemRows.filter((item) => item.orderId === order.id).map((item) => ({ ...item, additionalSachets: Number(item.additionalSachets), totalSachets: Number(item.totalSachets) })),
+      items: itemRows.filter((item) => item.orderId === order.id).map((item) => ({ ...item, taxRateBps: item.taxRateBps as TaxRateBps | null, additionalSachets: Number(item.additionalSachets), totalSachets: Number(item.totalSachets) })),
     })),
     users: userRows,
   };

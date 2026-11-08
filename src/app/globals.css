@@ -161,3 +161,21 @@
 @media(max-width:700px){
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea{font-size:16px!important}
 }
+
+/* ---- TVA: clear HT / tax / TTC breakdowns ---- */
+.pack-line-totals{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex:1;font-size:10px;color:#52675a;white-space:nowrap}
+.pack-line-totals b,.review-vat-summary b,.detail-vat-breakdown b{color:#0f1c15;font-weight:700}
+.review-vat-summary{display:flex;align-items:center;justify-content:flex-end;gap:13px;flex:1;min-width:180px;font-size:10.5px;color:#2c3d32;white-space:nowrap}
+.detail-vat-breakdown{flex-basis:100%;display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-left:auto;font-size:11px;color:#2c3d32}
+.detail-vat-breakdown strong{min-width:95px;text-align:right;color:#0f1c15;font-size:12px}
+.tax-unset{display:inline-block;border-radius:5px;background:#fff3df;color:#8a6422;padding:4px 7px;font-size:10px;font-weight:700;white-space:nowrap}
+.admin-carton-ttc{display:block;margin-top:3px;color:#2c3d32;font-size:10px;font-weight:700}
+.order-amount-label{display:block;margin-bottom:2px;color:#2c3d32;font-size:9px;font-weight:700}
+.confirmation-receipt .receipt-total{border-top:1px solid #dfe9dd;color:#0f1c15;font-weight:700}
+.confirmation-receipt .receipt-total strong{font-size:14px;color:#0f1c15}
+@media(max-width:700px){
+  .pack-line-totals{justify-content:flex-start;gap:7px;flex-wrap:wrap;font-size:9px}
+  .review-vat-summary{order:4;flex-basis:100%;justify-content:flex-start;margin-left:51px;gap:10px;font-size:10px;white-space:normal}
+  .detail-vat-breakdown{flex-wrap:wrap;justify-content:flex-start;gap:6px 12px;padding-left:0;font-size:10px}
+  .detail-vat-breakdown strong{min-width:0;text-align:left}
+}

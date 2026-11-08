@@ -25,6 +25,8 @@ export const products = pgTable("products", {
   imageUrl: text("image_url"),
   /** Catalogue price of one sachet (EUR). Salespeople may negotiate a different price per order line. */
   defaultSachetPrice: numeric("default_sachet_price", { precision: 12, scale: 2 }).notNull(),
+  /** VAT basis points; null keeps existing products unconfigured until an admin chooses a rate. */
+  taxRateBps: integer("tax_rate_bps"),
   sachetsPerCarton: integer("sachets_per_carton").notNull().default(10),
   /** Optional sachet format shown to salespeople, e.g. "250 g". */
   unit: varchar("unit", { length: 30 }).notNull().default(""),
@@ -38,6 +40,7 @@ export const orders = pgTable("orders", {
   clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "restrict" }),
   status: varchar("status", { length: 30 }).notNull().default("pending"),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [index("orders_client_idx").on(table.clientId), index("orders_created_idx").on(table.createdAt)]);
@@ -53,6 +56,9 @@ export const orderItems = pgTable("order_items", {
   additionalSachets: numeric("additional_sachets", { precision: 12, scale: 2 }).notNull(),
   /** Historical snapshots: packaging and prices as they were when the line was saved. */
   sachetsPerCartonAtOrder: integer("sachets_per_carton").notNull().default(1),
+  /** Historical VAT snapshot; null means the legacy order predates VAT tracking. */
+  taxRateBps: integer("tax_rate_bps"),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   totalSachets: numeric("total_sachets", { precision: 12, scale: 2 }).notNull(),
   sachetPriceAtOrder: numeric("sachet_price_at_order", { precision: 12, scale: 2 }).notNull(),
   defaultSachetPriceAtOrder: numeric("default_sachet_price_at_order", { precision: 12, scale: 2 }).notNull(),

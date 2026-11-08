@@ -5,10 +5,12 @@ export type Client = {
   address: string | null; notes: string | null; createdAt: string;
 };
 export type Category = { id: number; name: string; createdAt: string };
+export type TaxRateBps = 550 | 2000;
 export type Product = {
   id: number; name: string; sku: string; categoryId: number; categoryName: string; imageUrl: string | null;
   /** Catalogue price per sachet (EUR, "12.00"). */
   defaultSachetPrice: string;
+  taxRateBps: TaxRateBps | null;
   sachetsPerCarton: number;
   /** Optional sachet format, e.g. "250 g". */
   unit: string;
@@ -18,11 +20,12 @@ export type Product = {
 export type OrderItem = {
   id: number; orderId: number; productId: number | null; productName: string; unit: string;
   cartonQuantity: number; additionalSachets: number; sachetsPerCartonAtOrder: number; totalSachets: number;
+  taxRateBps: TaxRateBps | null; taxAmount: string;
   sachetPriceAtOrder: string; defaultSachetPriceAtOrder: string; totalPrice: string;
 };
 export type Order = {
   id: number; orderNumber: string; clientId: number; clientName: string; clientCity: string;
-  status: OrderStatus; subtotal: string; total: string; createdAt: string; items: OrderItem[];
+  status: OrderStatus; subtotal: string; taxAmount: string; total: string; createdAt: string; items: OrderItem[];
 };
 export type Role = "admin" | "commercial";
 export type SessionUser = { id: number; name: string; email: string; role: Role; mustChangePassword: boolean };
