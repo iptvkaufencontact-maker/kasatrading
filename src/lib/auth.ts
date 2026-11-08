@@ -11,8 +11,8 @@ const SESSION_DAYS = 30;
 export const SESSION_COOKIE = "kasa_session";
 export const DEFAULT_ADMIN = { name: "Administrateur", email: "admin@kasa.com", password: "12345678" };
 
-/** Login is only enforced when KASA_AUTH_REQUIRED=true; otherwise the app opens directly. */
-export function authRequired() { return process.env.KASA_AUTH_REQUIRED === "true"; }
+/** Login is enabled by default and can only be disabled explicitly. */
+export function authRequired() { return process.env.KASA_AUTH_REQUIRED !== "false"; }
 /** Identity used when authentication is disabled: full access, no account. */
 export const OPEN_USER: SessionUser = { id: 0, name: "Espace commercial", email: "", role: "admin", mustChangePassword: false };
 
