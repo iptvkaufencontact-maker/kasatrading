@@ -46,10 +46,18 @@ export function plural(count: number, singular: string, pluralForm = `${singular
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
-/** "2 cartons × 12 + 6 sachets" */
+/** "2 colis × 12 + 6 sachets" */
 export function packingLabel(cartons: number, sachets: number, perCarton: number) {
   const parts: string[] = [];
-  if (cartons > 0) parts.push(`${plural(cartons, "carton")} × ${perCarton}`);
+  if (cartons > 0) parts.push(`${plural(cartons, "colis", "colis")} × ${perCarton}`);
+  if (sachets > 0) parts.push(plural(sachets, "sachet"));
+  return parts.length ? parts.join(" + ") : "Aucune quantité";
+}
+
+/** Order quantity as the salesperson sees it: "3 colis", "3 colis + 6 sachets" or "6 sachets". */
+export function quantityLabel(cartons: number, sachets: number) {
+  const parts: string[] = [];
+  if (cartons > 0) parts.push(plural(cartons, "colis", "colis"));
   if (sachets > 0) parts.push(plural(sachets, "sachet"));
   return parts.length ? parts.join(" + ") : "Aucune quantité";
 }

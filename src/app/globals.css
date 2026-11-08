@@ -179,3 +179,22 @@
   .detail-vat-breakdown{flex-wrap:wrap;justify-content:flex-start;gap:6px 12px;padding-left:0;font-size:10px}
   .detail-vat-breakdown strong{min-width:0;text-align:left}
 }
+
+/* ===== Masquage global des prix (activé par défaut, bouton oeil dans la barre du haut) ===== */
+/* Les montants sont effacés (invisibles) au lieu d'être floutés, sans casser la mise en page. */
+.app-shell.prices-masked :is(.product-price,.popular-price,.table-money,.admin-carton-ttc,.catalog-price,.detail-price,.line-total,.review-price,.carton-callout,.flow-product-info>span,.flow-product-tax,.stat-value,.stat-detail),
+.app-shell.prices-masked :is(.product-price,.popular-price,.table-money,.admin-carton-ttc,.catalog-price,.detail-price,.line-total,.review-price,.carton-callout,.flow-product-info>span,.flow-product-tax) *,
+.app-shell.prices-masked :is(.pack-note,.pack-line-totals,.review-vat-summary,.detail-vat-breakdown) b,
+.app-shell.prices-masked .detail-vat-breakdown strong,
+.app-shell.prices-masked .pack-summary>strong,
+.app-shell.prices-masked .review-total>span:not(:first-child)>strong,
+.app-shell.prices-masked .review-total>div>strong,
+.app-shell.prices-masked .footer-total>strong,
+.app-shell.prices-masked .confirmation-receipt>div:nth-child(n+4) strong{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none;user-select:none;-webkit-user-select:none}
+/* Les pastilles Remise/Majoration sont entièrement masquées (l'espace reste réservé). */
+.app-shell.prices-masked :is(.badge-discount,.badge-markup){visibility:hidden}
+/* Le tableau de bord réutilise le même masquage : plus de flou, montants effacés. */
+.stats-grid.masked .stat-value,.stats-grid.masked .stat-detail{filter:none;color:transparent;-webkit-text-fill-color:transparent;user-select:none;-webkit-user-select:none}
+
+/* Bouton oeil (masquer/afficher les prix) dans l'en-tête du flux de commande */
+.flow-header-actions{display:flex;align-items:center;gap:8px;flex:none}
