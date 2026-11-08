@@ -158,3 +158,6 @@
   .admin-quick-links strong,.admin-quick-links small,.product-card h3{font-size:12px}
   .section-heading h2,.panel-header h2,.list-intro h2,.catalogue-toolbar h2,.admin-toolbar h2{font-size:16px}
 }
+@media(max-width:700px){
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea{font-size:16px!important}
+}
