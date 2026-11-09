@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, CalendarDays, ClipboardList, FolderOpen, KeyRound, Package, Pencil, Plus, Search, ShieldCheck, ShoppingBag, Trash2, UsersRound } from "lucide-react";
+import { ArrowRight, CalendarDays, ClipboardList, FolderOpen, KeyRound, Package, Pencil, Plus, Printer, Search, Share2, ShieldCheck, ShoppingBag, Trash2, UsersRound } from "lucide-react";
 import type { AppData, AppUser, Category, Order, OrderStatus, Product, SessionUser } from "@/lib/types";
 import { statusLabels } from "@/lib/types";
 import { CategoryForm, EmptyState, initials, Modal, money, type Mutate, PasswordForm, PriceDelta, ProductForm, shortDate, StatusBadge, useConfirm, UserForm } from "./shared";
 import { packingLabel, quantityLabel, taxCentsFromHt, taxRateLabel, toCents } from "@/lib/packaging";
+import { createOrderInvoice } from "@/lib/invoice-pdf";
 
 export type AdminTab = "products" | "categories" | "users" | "account";
 
@@ -20,12 +21,44 @@ export function OrdersView({ data, mutate, newOrder, editOrder, initialOrderId }
 }
 
 export function OrderDetail({ order, data, mutate, onClose, onEdit }: { order: Order; data: AppData; mutate: Mutate; onClose: () => void; onEdit: () => void }) {
-  const [busy, setBusy] = useState(false); const client = data.clients.find((item) => item.id === order.clientId);
+  const [busy, setBusy] = useState(false); const [invoiceBusy, setInvoiceBusy] = useState<"print" | "share" | null>(null); const [invoiceMessage, setInvoiceMessage] = useState(""); const client = data.clients.find((item) => item.id === order.clientId);
   const { confirm, dialog } = useConfirm();
   const hasDeletedProducts = order.items.some((item) => !item.productId || !data.products.some((product) => product.id === item.productId));
   const hasUnrecordedTax = order.items.some((item) => item.taxRateBps === null);
   async function changeStatus(status: OrderStatus) { setBusy(true); try { await mutate("order", "status", { id: order.id, status }); } catch (error) { window.alert(error instanceof Error ? error.message : "Modification impossible."); } finally { setBusy(false); } }
   async function remove() { if (!(await confirm({ message: `Supprimer définitivement la commande #${order.orderNumber} ?` }))) return; try { await mutate("order", "delete", { id: order.id }); onClose(); } catch (error) { window.alert(error instanceof Error ? error.message : "Suppression impossible."); } }
+  async function createInvoice(action: "print" | "share") {
+    setInvoiceBusy(action); setInvoiceMessage("");
+    const printWindow = action === "print" ? window.open("about:blank", "_blank") : null;
+    if (printWindow) printWindow.opener = null;
+    try {
+      const { blob, fileName } = await createOrderInvoice(order, client);
+      if (action === "print") {
+        if (!printWindow) {
+          downloadInvoice(blob, fileName);
+          setInvoiceMessage("Le navigateur a bloqué l’ouverture. Le PDF a été téléchargé pour l’impression.");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        printWindow.location.replace(url);
+        window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+        return;
+      }
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Facture ${order.orderNumber}`, text: `Facture ${order.orderNumber} · ${order.clientName}` });
+      } else {
+        downloadInvoice(blob, fileName);
+        setInvoiceMessage("Le partage direct du PDF n’est pas disponible sur ce navigateur. Joignez le fichier téléchargé dans WhatsApp.");
+      }
+    } catch (error) {
+      if (printWindow && !printWindow.closed) printWindow.close();
+      if (error instanceof Error && error.name === "AbortError") return;
+      setInvoiceMessage("La facture PDF n’a pas pu être générée. Réessayez.");
+    } finally {
+      setInvoiceBusy(null);
+    }
+  }
   return <Modal title={`Commande #${order.orderNumber}`} subtitle={`Créée le ${shortDate(order.createdAt)}`} onClose={onClose} size="wide">
     <div className="modal-form order-detail">
       <div className="detail-top">
@@ -54,12 +87,28 @@ export function OrderDetail({ order, data, mutate, onClose, onEdit }: { order: O
         <span>{hasUnrecordedTax ? "TVA historique non renseignée" : "TVA totale"} <strong>{hasUnrecordedTax ? "—" : money(order.taxAmount)}</strong></span>
         <div>{hasUnrecordedTax ? "Montant historique" : "Total TTC"} <strong>{money(order.total)}</strong></div>
       </div>
+      <div className="invoice-actions">
+        <button className="button secondary" disabled={invoiceBusy !== null} onClick={() => createInvoice("print")}><Printer size={16}/>{invoiceBusy === "print" ? "Préparation..." : "Imprimer la facture"}</button>
+        <button className="button primary" disabled={invoiceBusy !== null} onClick={() => createInvoice("share")}><Share2 size={16}/>{invoiceBusy === "share" ? "Préparation..." : "Partager le PDF"}</button>
+      </div>
+      {invoiceMessage && <p className="invoice-feedback" role="status">{invoiceMessage}</p>}
       {hasDeletedProducts && <p className="form-error">Cette commande contient un produit supprimé. Son historique est conservé, mais elle ne peut plus être modifiée.</p>}
       {hasUnrecordedTax && <p className="form-error">Cette commande ancienne n’a pas de TVA enregistrée. Son montant historique est conservé et la commande ne peut pas être recalculée.</p>}
       <div className="modal-actions spread"><button className="danger-link" onClick={remove}><Trash2 size={16}/> Supprimer</button><button className="button primary" disabled={hasDeletedProducts || hasUnrecordedTax} onClick={onEdit}><Pencil size={16}/> Modifier la commande</button></div>
     </div>
     {dialog}
   </Modal>;
+}
+
+function downloadInvoice(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export function AdminView({ data, mutate, navigate, user, authEnabled = false, initialTab = "products", tabRequest = 0 }: { data: AppData; mutate: Mutate; navigate: (view: string) => void; user: SessionUser; authEnabled?: boolean; initialTab?: AdminTab; tabRequest?: number }) {

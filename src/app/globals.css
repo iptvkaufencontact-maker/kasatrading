@@ -215,3 +215,12 @@
 
 /* Bouton oeil (masquer/afficher les prix) dans l'en-tête du flux de commande */
 .flow-header-actions{display:flex;align-items:center;gap:8px;flex:none}
+
+/* ---- Impression et partage des factures ---- */
+.invoice-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid #e9eee8}
+.invoice-actions .button{min-height:46px}
+.invoice-feedback{margin-top:11px;padding:11px 13px;border:1px solid #dce9da;border-radius:8px;background:#f4f8f2;color:#0f1c15;font-size:12px;font-weight:700;line-height:1.5}
+@media(max-width:700px){
+  .invoice-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .invoice-actions .button{width:100%;white-space:normal}
+}
