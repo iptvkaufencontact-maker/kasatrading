@@ -48,6 +48,18 @@
 
 @media(max-width:700px){.security-banner{padding:10px 17px;flex-wrap:wrap;line-height:1.5}.security-banner button{margin-left:0;width:100%}.user-row{gap:8px}.account-card{padding:18px 15px 22px}}
 
+/* ---- Code d'accès aux pages clients et commandes ---- */
+.access-code-form{display:flex;flex-direction:column;gap:16px}
+.access-code-intro{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid #e4ece1;border-radius:9px;background:#f7faf5}
+.access-code-icon{width:42px;height:42px;display:grid;place-items:center;flex:none;border-radius:10px;background:#e7efe3;color:#285840}
+.access-code-intro p{font-size:13px;font-weight:700;line-height:1.45;color:#0f1c15}
+.access-code-label{display:flex;flex-direction:column;gap:8px;color:#0f1c15;font-size:13px;font-weight:700}
+.access-code-label input{width:100%;height:54px;border:1px solid #d9e4d7;border-radius:8px;background:#fff;text-align:center;font-size:22px;font-weight:800;letter-spacing:12px;padding:0 12px 0 24px;color:#173f33}
+.access-code-label input:focus{border-color:#7ea489;outline:3px solid #e7f0e5}
+.access-code-label input[aria-invalid="true"]{border-color:#c0574a}
+.access-code-form .modal-actions{margin-top:2px}
+@media(max-width:700px){.access-code-form .modal-actions{display:grid;grid-template-columns:1fr 1fr}.access-code-form .modal-actions .button{width:100%;min-height:46px;font-size:13px}}
+
 .session-gate{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#6b8070;font-size:12px}.session-gate .brand-mark{width:46px;height:46px;border-radius:14px 14px 14px 4px;background:#e7ddbd;color:#244c39;display:grid;place-items:center;animation:gate-pulse 1.2s ease-in-out infinite}@keyframes gate-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.92);opacity:.7}}
 
 /* ---- Conditionnement carton / sachet ---- */

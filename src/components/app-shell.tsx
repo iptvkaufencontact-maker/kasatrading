@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Eye, EyeOff, KeyRound, Leaf, LayoutDashboard, LogOut, Menu, Package, Plus, Settings2, ShieldAlert, UsersRound, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Eye, EyeOff, KeyRound, Leaf, LayoutDashboard, LockKeyhole, LogOut, Menu, Package, Plus, Settings2, ShieldAlert, UsersRound, X } from "lucide-react";
 import type { AppData, Order, SessionUser } from "@/lib/types";
 import Dashboard from "./dashboard";
 import { CatalogueView, ClientsView, type NewOrderOptions } from "./clients-catalogue";
 import { type AdminTab, AdminView, OrdersView } from "./orders-admin";
 import OrderWorkflow from "./order-workflow";
-import { initials, type Mutate } from "./shared";
+import { initials, Modal, type Mutate } from "./shared";
 import { apiFetch, goToLogin, setToken } from "@/lib/client-auth";
 
 type View = "dashboard" | "clients" | "catalogue" | "commandes" | "administration";
+type ProtectedView = Extract<View, "clients" | "commandes">;
 type Flow = { editing?: Order | null; clientId?: number; productId?: number };
 const nav: { view: View; label: string; icon: typeof LayoutDashboard }[] = [
   { view: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -20,17 +21,74 @@ const nav: { view: View; label: string; icon: typeof LayoutDashboard }[] = [
 ];
 const labels: Record<View, string> = { dashboard: "Tableau de bord", clients: "Clients", catalogue: "Catalogue", commandes: "Commandes", administration: "Administration" };
 function isView(value: string | null): value is View { return !!value && ["dashboard", "clients", "catalogue", "commandes", "administration"].includes(value); }
+function isProtectedView(value: View): value is ProtectedView { return value === "clients" || value === "commandes"; }
 
 export default function AppShell({ initialData, user, authEnabled = false }: { initialData: AppData; user: SessionUser; authEnabled?: boolean }) {
   const [data, setData] = useState(initialData); const [view, setView] = useState<View>("dashboard");
+  const [protectedView, setProtectedView] = useState<ProtectedView | null>(null); const [accessCode, setAccessCode] = useState(""); const [accessError, setAccessError] = useState("");
   const [flow, setFlow] = useState<Flow | null>(null); const [focusOrderId, setFocusOrderId] = useState<number | null>(null);
   const [menu, setMenu] = useState(false); const [toast, setToast] = useState("");
   const [pricesMasked, setPricesMasked] = useState(true);
   const [adminRequest, setAdminRequest] = useState<{ tab: AdminTab; n: number }>({ tab: "products", n: 0 });
   const [mustChange, setMustChange] = useState(user.mustChangePassword);
-  useEffect(() => { const read = () => { const value = new URLSearchParams(window.location.search).get("view"); setView(isView(value) ? value : "dashboard"); }; read(); window.addEventListener("popstate", read); return () => window.removeEventListener("popstate", read); }, []);
+  const initialLocationHandled = useRef(false);
+  useEffect(() => {
+    const read = () => {
+      const value = new URLSearchParams(window.location.search).get("view");
+      const requested = isView(value) ? value : "dashboard";
+      if (isProtectedView(requested)) {
+        setView("dashboard");
+        setProtectedView(requested);
+        setAccessCode("");
+        setAccessError("");
+        window.history.replaceState({}, "", "/");
+        return;
+      }
+      setView(requested);
+      setProtectedView(null);
+    };
+    if (!initialLocationHandled.current) {
+      initialLocationHandled.current = true;
+      read();
+    }
+    window.addEventListener("popstate", read);
+    return () => window.removeEventListener("popstate", read);
+  }, []);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(""), 3000); return () => clearTimeout(timer); }, [toast]);
-  const navigate = useCallback((next: string) => { if (!isView(next)) return; setView(next); setMenu(false); const url = next === "dashboard" ? "/" : `/?view=${next}`; window.history.pushState({}, "", url); window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
+  const navigate = useCallback((next: string) => {
+    if (!isView(next)) return;
+    setMenu(false);
+    if (isProtectedView(next)) {
+      if (view === next && !protectedView) return;
+      setProtectedView(next);
+      setAccessCode("");
+      setAccessError("");
+      return;
+    }
+    setProtectedView(null);
+    setView(next);
+    const url = next === "dashboard" ? "/" : `/?view=${next}`;
+    window.history.pushState({}, "", url);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [protectedView, view]);
+  function cancelProtectedAccess() {
+    setProtectedView(null);
+    setAccessCode("");
+    setAccessError("");
+  }
+  function submitAccessCode(event: { preventDefault: () => void }) {
+    event.preventDefault();
+    if (accessCode !== "1234" || !protectedView) {
+      setAccessError("Code incorrect. Vérifiez les 4 chiffres et réessayez.");
+      setAccessCode("");
+      return;
+    }
+    const next = protectedView;
+    cancelProtectedAccess();
+    setView(next);
+    window.history.pushState({}, "", `/?view=${next}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   const mutate: Mutate = async (entity, action, payload) => {
     const response = await apiFetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, action, payload }) });
     const result = await response.json();
@@ -55,5 +113,5 @@ export default function AppShell({ initialData, user, authEnabled = false }: { i
       {authEnabled && mustChange && <div className="security-banner"><ShieldAlert size={17}/><span>Vous utilisez encore le mot de passe initial. Pensez à le modifier pour sécuriser votre compte.</span><button onClick={openAccount}>Modifier maintenant</button></div>}
       <main>{view === "dashboard" && <Dashboard data={data} navigate={navigate} newOrder={() => newOrder()} openOrder={openOrder}/>} {view === "clients" && <ClientsView data={data} mutate={mutate} newOrder={newOrder} openOrder={openOrder}/>} {view === "catalogue" && <CatalogueView data={data} mutate={mutate} newOrder={newOrder}/>} {view === "commandes" && <OrdersView data={data} mutate={mutate} newOrder={() => newOrder()} editOrder={editOrder} initialOrderId={focusOrderId}/>} {view === "administration" && <AdminView data={data} mutate={mutate} navigate={navigate} user={user} authEnabled={authEnabled} initialTab={adminRequest.tab} tabRequest={adminRequest.n}/>}</main>
     </div><nav className="mobile-nav" aria-label="Navigation principale">{nav.map((item) => <button key={item.view} className={view === item.view ? "active" : ""} onClick={() => navigate(item.view)}><item.icon size={20}/><span>{item.view === "dashboard" ? "Accueil" : item.label}</span></button>)}<button className={view === "administration" ? "active" : ""} onClick={() => navigate("administration")}><Menu size={20}/><span>Menu</span></button></nav>
-    {flow && <OrderWorkflow key={`${flow.editing?.id || "new"}-${flow.clientId || ""}-${flow.productId || ""}`} data={data} mutate={mutate} editing={flow.editing} initialClientId={flow.clientId} initialProductId={flow.productId} pricesMasked={pricesMasked} onTogglePrices={() => setPricesMasked((value) => !value)} onClose={() => setFlow(null)} onFinish={(id) => { setFlow(null); openOrder(id); }}/>} {toast && <div className="toast"><CheckCircle2 size={18}/>{toast}<button onClick={() => setToast("")} aria-label="Fermer"><X size={15}/></button></div>}</div>;
+    {protectedView && <Modal title={`Accès à ${labels[protectedView]}`} subtitle="Saisissez le code à 4 chiffres pour continuer." onClose={cancelProtectedAccess}><form className="modal-form access-code-form" onSubmit={submitAccessCode}><div className="access-code-intro"><span className="access-code-icon"><LockKeyhole size={22}/></span><p>Cette page est protégée par un code d’accès.</p></div><label className="access-code-label">Code d’accès<input type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="off" autoFocus maxLength={4} value={accessCode} onChange={(event) => { setAccessCode(event.target.value.replace(/\D/g, "").slice(0, 4)); setAccessError(""); }} placeholder="••••" aria-label="Code d’accès" aria-invalid={Boolean(accessError)} /></label>{accessError && <p className="form-error" role="alert">{accessError}</p>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancelProtectedAccess}>Annuler</button><button type="submit" className="button primary" disabled={accessCode.length !== 4}>Accéder <ArrowRight size={16}/></button></div></form></Modal>} {flow && <OrderWorkflow key={`${flow.editing?.id || "new"}-${flow.clientId || ""}-${flow.productId || ""}`} data={data} mutate={mutate} editing={flow.editing} initialClientId={flow.clientId} initialProductId={flow.productId} pricesMasked={pricesMasked} onTogglePrices={() => setPricesMasked((value) => !value)} onClose={() => setFlow(null)} onFinish={(id) => { setFlow(null); openOrder(id); }}/>} {toast && <div className="toast"><CheckCircle2 size={18}/>{toast}<button onClick={() => setToast("")} aria-label="Fermer"><X size={15}/></button></div>}</div>;
 }
