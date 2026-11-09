@@ -77,7 +77,21 @@
 .badge-discount,.badge-markup{display:inline-flex;align-items:center;border-radius:5px;padding:3px 7px;font-size:9px;font-weight:700;white-space:nowrap}
 .badge-discount{background:#e8f3ea;color:#3f7a52}.badge-markup{background:#fff0e4;color:#b06a38}
 .catalog-price{color:#a7b3a9;text-decoration:line-through;font-weight:400;margin-right:4px}
-.flow-product.in-cart{flex-wrap:wrap;background:#fcfdfb;margin:0 -8px;padding:11px 8px;border-radius:10px}
+.flow-product{gap:14px;padding:12px;border:1px solid #e5ece3;border-radius:12px;background:#fff}
+.flow-product:hover{border-color:#c7d9c5}
+.flow-product .flow-product-img{width:84px;height:84px;border-radius:11px}
+.image-zoom-button{border:0;padding:0;font:inherit;cursor:zoom-in}
+.image-zoom-button:focus-visible{outline:3px solid #7ea783;outline-offset:3px}
+.flow-product.in-cart{flex-wrap:wrap;background:#f7fbf6;border-color:#afc9b1;margin:0;padding:12px;border-radius:12px}
+.flow-product .add-product{min-height:42px;padding:0 13px;border:1px solid #285b40;border-radius:8px;background:#285b40;color:#fff;font-size:12px;white-space:nowrap}
+.flow-product .add-product:hover:not(:disabled){border-color:#1e4a32;background:#1e4a32;color:#fff}
+.flow-product .add-product:disabled{opacity:.6}
+.product-image-viewer{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:68px 14px 22px;background:rgba(12,24,17,.96)}
+.product-image-viewer>img{display:block;width:min(94vw,1000px);height:min(80dvh,900px);object-fit:contain;border-radius:12px;background:#fff}
+.product-image-viewer-close{position:absolute;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));width:48px;height:48px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.22);border-radius:50%;background:#fff;color:#193c29}
+.product-image-viewer-caption{display:grid;gap:4px;text-align:center;color:#fff}
+.product-image-viewer-caption strong{font-size:16px;font-weight:800}
+.product-image-viewer-caption span{font-size:12px;color:#d6e2d6}
 .review-line{flex-wrap:wrap}
 .review-line .pack-panel{margin-top:6px}
 .review-product span>small{display:block}
