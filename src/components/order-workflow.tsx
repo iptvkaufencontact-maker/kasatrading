@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, ClipboardCheck, Eye, EyeOff, Minus, Package, Pencil, Plus, RotateCcw, Search, ShoppingBasket, Store, Trash2, UserPlus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, ClipboardCheck, Eye, EyeOff, Minus, Package, Pencil, Plus, Search, ShoppingBasket, Store, Trash2, UserPlus, X } from "lucide-react";
 import type { AppData, CartItem, Order, Product } from "@/lib/types";
 import { LIMITS, lineTotalCents, plural, quantityLabel, taxCentsFromHt, taxRateLabel, toCents, totalSachetsOf } from "@/lib/packaging";
-import { ClientForm, CURRENCY, initials, money, type Mutate, PriceDelta, shortDate } from "./shared";
+import { ClientForm, initials, money, type Mutate, PriceDelta, shortDate } from "./shared";
 
 type Props = { data: AppData; mutate: Mutate; onClose: () => void; onFinish: (id: number) => void; editing?: Order | null; initialProductId?: number | null; initialClientId?: number | null; pricesMasked?: boolean; onTogglePrices?: () => void };
 /** A cart line enriched with the packaging/catalogue reference and all derived amounts (integer cents). */
@@ -17,36 +17,27 @@ function IntControl({ value, label, max, onChange }: { value: number; label: str
   const [draft, setDraft] = useState(String(value));
   useEffect(() => { setDraft(String(value)); }, [value]);
   function commit() {
-    const parsed = parseInt(draft.replace(/\D/g, ""), 10);
-    if (!Number.isFinite(parsed)) { setDraft(String(value)); return; }
-    const next = clampInt(parsed, max); onChange(next); setDraft(String(next));
+    if (draft === "") { onChange(0); setDraft("0"); return; }
+    if (!/^\d+$/.test(draft)) { setDraft(String(value)); return; }
+    const next = clampInt(Number(draft), max); onChange(next); setDraft(String(next));
   }
-  return <div className="int-control"><button type="button" onClick={() => onChange(clampInt(value - 1, max))} aria-label={`Diminuer ${label}`}><Minus size={17}/></button><input aria-label={label} type="text" inputMode="numeric" pattern="[0-9]*" value={draft} onChange={(event) => setDraft(event.target.value)} onFocus={(event) => event.currentTarget.select()} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}/><button type="button" onClick={() => onChange(clampInt(value + 1, max))} aria-label={`Augmenter ${label}`}><Plus size={17}/></button></div>;
+  return <div className="int-control"><button type="button" onClick={() => onChange(clampInt(value - 1, max))} aria-label={`Diminuer ${label}`}><Minus size={17}/></button><input aria-label={label} type="text" inputMode="numeric" pattern="[0-9]*" value={draft} onChange={(event) => {
+    const nextDraft = event.target.value;
+    setDraft(nextDraft);
+    if (nextDraft === "") onChange(0);
+    else if (/^\d+$/.test(nextDraft)) onChange(clampInt(Number(nextDraft), max));
+  }} onFocus={(event) => event.currentTarget.select()} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}/><button type="button" onClick={() => onChange(clampInt(value + 1, max))} aria-label={`Augmenter ${label}`}><Plus size={17}/></button></div>;
 }
 
-function formatPriceDraft(value: number) { return (Math.round(value * 100) / 100).toFixed(2).replace(".", ","); }
-
-/** Negotiated sachet price. Accepts "11", "11.5" or "11,50"; committed on blur / Enter. */
-function PriceInput({ value, defaultValue, label, onChange }: { value: number; defaultValue: string; label: string; onChange: (value: number) => void }) {
-  const [draft, setDraft] = useState(formatPriceDraft(value));
-  useEffect(() => { setDraft(formatPriceDraft(value)); }, [value]);
-  function commit() {
-    const parsed = Number(draft.replace(/\s/g, "").replace(",", "."));
-    if (draft.trim() === "" || !Number.isFinite(parsed) || parsed < 0) { setDraft(formatPriceDraft(value)); return; }
-    const next = Math.min(LIMITS.price, Math.round(parsed * 100) / 100); onChange(next); setDraft(formatPriceDraft(next));
-  }
-  return <div className={`price-input ${toCents(value) !== toCents(defaultValue) ? "changed" : ""}`}><input aria-label={label} type="text" inputMode="decimal" value={draft} onChange={(event) => setDraft(event.target.value)} onFocus={(event) => event.currentTarget.select()} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}/><span>{CURRENCY}</span></div>;
-}
-
-/** Cartons + additional sachets + negotiated price, with live totals. */
+/** Cartons and additional sachets; the applied per-sachet price is read-only. */
 function PackagingPanel({ line, update, compact = false }: { line: Line; update: (patch: Partial<CartItem>) => void; compact?: boolean }) {
   return <div className={`pack-panel ${compact ? "compact" : ""}`}>
     <div className="pack-grid">
       <div className="pack-field"><label>Colis <small>· {line.perCarton} sachets / colis</small></label><IntControl value={line.cartons} max={LIMITS.cartons} label={`Colis ${line.product.name}`} onChange={(cartons) => update({ cartons })}/></div>
       <div className="pack-field"><label>Sachets en plus</label><IntControl value={line.sachets} max={LIMITS.sachets} label={`Sachets en plus ${line.product.name}`} onChange={(sachets) => update({ sachets })}/></div>
-      <div className="pack-field price"><label>Prix négocié / sachet</label><PriceInput value={line.sachetPrice} defaultValue={line.defaultPrice} label={`Prix négocié ${line.product.name}`} onChange={(sachetPrice) => update({ sachetPrice })}/><div className="pack-note"><span>Prix catalogue : <b>{money(line.defaultPrice)}</b></span>{line.priceCents !== line.defaultCents && <button type="button" onClick={() => update({ sachetPrice: Number(line.defaultPrice) })}><RotateCcw size={11}/> Remettre</button>}</div></div>
+      <div className="pack-field price"><label>Prix / sachet</label><div className="price-input price-readonly" aria-label={`Prix par sachet ${line.product.name}`}><strong>{money(line.sachetPrice)}</strong></div></div>
     </div>
-    <div className="pack-summary"><span>{line.totalSachets > 0 ? <>Total : <b>{quantityLabel(line.cartons, line.sachets)}</b></> : <span className="pack-warning">Indiquez au moins 1 colis ou 1 sachet.</span>}<PriceDelta defaultCents={line.defaultCents} priceCents={line.priceCents}/></span><div className="pack-line-totals">{line.taxRateBps === null ? <span className="pack-warning">TVA à définir</span> : <><span>HT <b>{money(line.totalCents / 100)}</b></span><span>TVA {taxRateLabel(line.taxRateBps)} <b>{money(line.taxCents / 100)}</b></span></>}</div><strong>{line.taxRateBps === null ? "—" : `TTC ${money(line.totalTtcCents / 100)}`}</strong></div>
+    <div className="pack-summary"><span>{line.totalSachets > 0 ? <>Total : <b>{quantityLabel(line.cartons, line.sachets)}</b></> : <span className="pack-warning">Indiquez au moins 1 colis ou 1 sachet.</span>}</span><div className="pack-line-totals">{line.taxRateBps === null ? <span className="pack-warning">TVA à définir</span> : <><span>HT <b>{money(line.totalCents / 100)}</b></span><span>TVA {taxRateLabel(line.taxRateBps)} <b>{money(line.taxCents / 100)}</b></span></>}</div><strong>{line.taxRateBps === null ? "—" : `TTC ${money(line.totalTtcCents / 100)}`}</strong></div>
   </div>;
 }
 
@@ -119,7 +110,11 @@ export default function OrderWorkflow({ data, mutate, onClose, onFinish, editing
               <div className="flow-product-info">
                 <strong>{product.name}</strong><small>{product.categoryName} · {product.sku}{product.unit ? ` · Sachet ${product.unit}` : ""}</small>
                 <span>{money(product.defaultSachetPrice)} <small>HT / sachet · colis HT {money(cartonCents / 100)}</small></span>
-                <span className="flow-product-tax">{product.taxRateBps === null ? "TVA à définir" : `TVA ${taxRateLabel(product.taxRateBps)} · colis TTC ${money((cartonCents + (cartonTaxCents || 0)) / 100)}`}</span>
+                <span className="flow-product-tax">{line
+                  ? `Quantité choisie · TTC ${money(line.totalTtcCents / 100)}`
+                  : product.taxRateBps === null
+                    ? "TVA à définir"
+                    : `TVA ${taxRateLabel(product.taxRateBps)} · TTC / colis ${money((cartonCents + (cartonTaxCents || 0)) / 100)}`}</span>
               </div>
               {line ? <button className="icon-button danger" aria-label={`Retirer ${product.name}`} onClick={() => removeLine(product.id)}><Trash2 size={17}/></button> : <button className="add-product" disabled={!product.available || product.taxRateBps === null} title={product.taxRateBps === null ? "Définissez d’abord la TVA du produit" : undefined} onClick={() => addProduct(product)}><Plus size={16}/> <span>{product.taxRateBps === null ? "TVA à définir" : "Ajouter"}</span></button>}
               {line && <PackagingPanel line={line} update={(patch) => updateLine(product.id, patch)}/>}

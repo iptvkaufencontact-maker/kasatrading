@@ -65,6 +65,7 @@
 .price-input input{flex:1;min-width:0;width:100%;border:0;outline:0;font-size:16px;font-weight:700;color:#2b4a37;text-align:right;background:transparent}
 .price-input span{font-size:11px;font-weight:700;color:#8a9a8e}
 .price-input.changed{border-color:#d2b06a;background:#fffaee}
+.price-input.price-readonly{justify-content:flex-end;font-size:16px;font-weight:700;color:#2b4a37}
 .pack-note{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px;color:#8a9a8e}
 .pack-note b{color:#5d7162}
 .pack-note button{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:0;color:#45745a;font-size:10px;font-weight:700}
@@ -183,6 +184,8 @@
 /* ===== Masquage global des prix (activé par défaut, bouton oeil dans la barre du haut) ===== */
 /* Les montants sont effacés (invisibles) au lieu d'être floutés, sans casser la mise en page. */
 .app-shell.prices-masked :is(.product-price,.popular-price,.table-money,.admin-carton-ttc,.catalog-price,.detail-price,.line-total,.review-price,.carton-callout,.flow-product-info>span,.flow-product-tax,.stat-value,.stat-detail),
+.app-shell.prices-masked .price-readonly,
+.app-shell.prices-masked .price-readonly *,
 .app-shell.prices-masked :is(.product-price,.popular-price,.table-money,.admin-carton-ttc,.catalog-price,.detail-price,.line-total,.review-price,.carton-callout,.flow-product-info>span,.flow-product-tax) *,
 .app-shell.prices-masked :is(.pack-note,.pack-line-totals,.review-vat-summary,.detail-vat-breakdown) b,
 .app-shell.prices-masked .detail-vat-breakdown strong,
